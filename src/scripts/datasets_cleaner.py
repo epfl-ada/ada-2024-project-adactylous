@@ -89,11 +89,32 @@ clean_df_movie_metadata_CMU['release_year'] = clean_df_movie_metadata_CMU['relea
 clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['release_year'] == 1010, 'release_year'] = 2010
 clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['release_date'] == '1010-12-02', 'release_date'] = '2010-12-02'
 
+# https://en.wikipedia.org/wiki/Thiruthani_(film)
+clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Thiruthani', 'release_year'] = 2012
+clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Thiruthani', 'release_date'] = '2012-10-19'
+
+# https://en.wikipedia.org/wiki/Paradise_in_Harlem 
+clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Paradise in Harlem', 'release_year'] = 1939
 
 # Correcting the runtime outlier of the the film Zero Tolerance that has a tremendous runtime value to the duration written in wikipedia
 # https://en.wikipedia.org/wiki/Zero_Tolerance_(1994_film)
 clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Zero Tolerance', 'runtime'] = 94.0
-
+# https://en.wikipedia.org/wiki/Paradise_in_Harlem
+clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Paradise in Harlem', 'runtime'] = 85.0
+# https://en.wikipedia.org/wiki/Kai_Kodutha_Deivam 
+clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Kai Koduttha Dheivam', 'runtime'] = 164.0
+# https://www.imdb.com/title/tt0371636/ 
+clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Dil Ne Phir Yaad Kiya', 'runtime'] = 147.0
+# https://en.wikipedia.org/wiki/Dhool_Ka_Phool
+clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Dhool Ka Phool', 'runtime'] = 153.0
+# https://en.wikipedia.org/wiki/Thiruthani_(film)
+clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Thiruthani', 'runtime'] = 145.0
+# https://en.wikipedia.org/wiki/Rebound_(2005_film)  
+clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Rebound', 'runtime'] = 103.0
+# https://en.wikipedia.org/wiki/Backfire_(1950_film) 
+clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Backfire', 'runtime'] = 91.0
+# https://en.wikipedia.org/wiki/First_Yank_into_Tokyo 
+clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'First Yank into Tokyo', 'runtime'] = 82.0
 
 
 ################################################## Merging #############################################################
@@ -116,15 +137,19 @@ df_movie_metada_full_left = pd.merge(clean_df_movie_metadata_CMU, df_IMDB_final,
 
 df_movie_metada_full_left.drop(columns=['runtimeMinutes', 'startYear', 'originalTitle'], inplace= True)
 
-# Reorder the columns in a more convenient way
-cols = ['wiki_movie_ID', 'freebase_movie_ID', 'title', 'release_date', 'release_year', 'runtime', 'languages', 'countries', 'box_office', 'averageRating', 'numVotes', 'genres_CMU', 'genres_IMDB']
-df_movies_full_left = df_movie_metada_full_left[cols]
 
 # Check for rows with non-UTF-8 characters and replace them
 for col in df_movie_metada_full_left.columns:
     df_movie_metada_full_left[col] = df_movie_metada_full_left[col].apply(
         lambda x: unidecode(x) if isinstance(x, str) else x
     )
+
+# Reorder the columns in a more convenient way
+cols = ['wiki_movie_ID', 'freebase_movie_ID', 'title', 'release_date', 'release_year', 'runtime', 'languages', 'countries', 'box_office', 'averageRating', 'numVotes', 'genres_CMU', 'genres_IMDB']
+df_movies_full_left = df_movie_metada_full_left[cols]
+
+# to ensure that 'release_year' stays an int whne writing it to the csv file
+df_movies_full_left['release_year'] = df_movies_full_left['release_year'].astype('Int64')
 
 ################################################## Writing CSV files ############################################################
 df_movie_metada_full_left.to_csv("data/movie_metadata_CMU_IMDB.csv", sep=',', encoding='utf-8', index=False, header=True)
