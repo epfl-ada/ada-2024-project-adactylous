@@ -70,8 +70,11 @@ print("Dataframes creation for IMDB datasets done.")
 
 ################################################## Cleaning CMU dataset ##########################################################
 df_movie_metadata_CMU.columns = ['wiki_movie_ID', 'freebase_movie_ID', 'title', 'release_date', 'box_office', 'runtime', 'languages', 'countries', 'genres']
+df_character_metadata_CMU.columns = ['wiki_movie_ID', 'freebase_movie_ID', 'release_date', 'character_name', 'birth_date', 'gender', 'height', 'ethnicity', 'actor_name', 'age_at_release','freebase_map_ID', 'freebase_char_ID', 'freebase_actor_ID']
+df_tvtropes_clusters_CMU.columns = ['cluster','dictionary']
 
 clean_df_movie_metadata_CMU = df_movie_metadata_CMU.copy() # copy of original data frame to avoid messing it up
+clean_df_character_metadata_CMU = df_character_metadata_CMU.copy()
 
 # Cleaning the dataset columns
 clean_df_movie_metadata_CMU['languages'] = clean_df_movie_metadata_CMU['languages'].apply(clean_column)
@@ -94,11 +97,18 @@ clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['release_date'] == '
 # https://en.wikipedia.org/wiki/Zero_Tolerance_(1994_film)
 clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Zero Tolerance', 'runtime'] = 94.0
 
+# Correcting the age outliers in character dataset
+clean_df_character_metadata_CMU['age_at_release'] = pd.to_numeric(clean_df_character_metadata_CMU['age_at_release'].apply(lambda x: abs(x) if x < 0 else (x if x < 100 else pd.NA)), errors='coerce')
+
+# Creating new columns for each key of the dictionary to separate its values
+# https://www.geeksforgeeks.org/python-convert-string-dictionary-to-dictionary/
+df_tvtropes_clusters_CMU['dictionary'] = df_tvtropes_clusters_CMU['dictionary'].apply(ast.literal_eval)
+df_tvtropes_clusters_CMU[['character_name','title','freebase_map_ID','actor_name']] = pd.json_normalize(df_tvtropes_clusters_CMU['dictionary'])
 
 
 ################################################## Merging #############################################################
 
-# 1) Merging both IMDB datasets: title
+# 1a) Merging both IMDB datasets: title
 # Inner join because want to keep only movies that have been rated by the public
 df_basics_ratings_merged_IMDB = pd.merge(df_basics_IMDB, df_ratings_IMDB, on = 'tconst', how = 'inner') 
 
@@ -111,7 +121,7 @@ df_IMDB_final = df_basics_ratings_merged_IMDB_cleaned.drop(columns = ['tconst', 
 df_IMDB_final['startYear'] = pd.to_numeric(df_IMDB_final['startYear'].replace("\\N", np.nan), errors = 'coerce').astype("Int64") 
 df_IMDB_final['runtimeMinutes'] = pd.to_numeric(df_IMDB_final['runtimeMinutes'].replace("\\N", np.nan), errors = 'coerce').astype('float64')
 
-# 2) Merging the final IMDB with the clean CMU movie.metatdat
+# 2a) Merging the final IMDB with the clean CMU movie.metatdat
 df_movie_metada_full_left = pd.merge(clean_df_movie_metadata_CMU, df_IMDB_final, left_on= ['title', 'runtime', 'release_year'], right_on= ['originalTitle', 'runtimeMinutes','startYear'], how = 'left', suffixes=('_CMU', '_IMDB'))
 
 df_movie_metada_full_left.drop(columns=['runtimeMinutes', 'startYear', 'originalTitle'], inplace= True)
@@ -126,7 +136,16 @@ for col in df_movie_metada_full_left.columns:
         lambda x: unidecode(x) if isinstance(x, str) else x
     )
 
+
+# 1b) Merging the clean CMU movie dataset witht the character dataset
+df_movie_character_merged = pd.merge(clean_df_character_metadata_CMU, clean_df_movie_metadata_CMU, on=['wiki_movie_ID','freebase_movie_ID','release_date'], how='outer')
+df_movie_character_final = pd.merge(df_movie_character_merged, df_tvtropes_clusters_CMU, on = ['freebase_map_ID', 'title', 'character_name','actor_name'], how='left')
+df_movie_character_final.drop(columns=['release_date','ethnicity', 'freebase_map_ID','freebase_char_ID','freebase_actor_ID', 'languages', 'genres', 'dictionary'], inplace= True)
+
+
+    
+
 ################################################## Writing CSV files ############################################################
 df_movie_metada_full_left.to_csv("data/movie_metadata_CMU_IMDB.csv", sep=',', encoding='utf-8', index=False, header=True)
-
+df_movie_character_final.to_csv("data/character_actor_metadata_CMU.csv",sep=',', encoding='utf-8', index=False, header=True)
 df_plot_summaries_CMU.to_csv("data/plot_summaries_CMU.csv", sep=',', encoding='utf-8', index=False, header=True)
