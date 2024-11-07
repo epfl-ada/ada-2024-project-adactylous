@@ -41,12 +41,12 @@ for compressed_folder in compressed_folders_list_CMU:
 # The procedure is different here since the IMDB files are compressed in the gz format and are single files, not folders
 for compressed_file in compressed_files_list_IMDB:
     tsv_file_path = os.path.join(DATA_FOLDER, IMDB_SUBFOLDER, os.path.basename(compressed_file)[:-3]) # remove the 3 last characters corresponding to '.gz' so that a clean tsv file is created
-    with gzip.open(compressed_file, 'rb') as file_in:
+    with gzip.open(compressed_file, 'rb') as file_in: #gzip
         with open(tsv_file_path, 'wb') as file_out:
             shutil.copyfileobj(file_in, file_out)
             print(f"TSV file {tsv_file_path} created")
 
-print(f"All tsv files have been cretad and saved in the {IMDB_SUBFOLDER} subfolder.")
+print(f"All tsv files have been created and saved in the {IMDB_SUBFOLDER} subfolder.")
 
 ################################################## Reading ###################################################################
 file_path = DATA_FOLDER + CMU_SUBFOLDER + "/MovieSummaries"
@@ -76,6 +76,7 @@ df_tvtropes_clusters_CMU.columns = ['cluster','dictionary']
 clean_df_movie_metadata_CMU = df_movie_metadata_CMU.copy() # copy of original data frame to avoid messing it up
 clean_df_character_metadata_CMU = df_character_metadata_CMU.copy()
 
+# MOVIE METADATA
 # Cleaning the dataset columns
 clean_df_movie_metadata_CMU['languages'] = clean_df_movie_metadata_CMU['languages'].apply(clean_column)
 clean_df_movie_metadata_CMU['countries'] = clean_df_movie_metadata_CMU['countries'].apply(clean_column)
@@ -118,14 +119,30 @@ clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Rebound
 clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Backfire', 'runtime'] = 91.0
 # https://en.wikipedia.org/wiki/First_Yank_into_Tokyo 
 clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'First Yank into Tokyo', 'runtime'] = 82.0
-# Correcting the age outliers in character dataset
-clean_df_character_metadata_CMU['age_at_release'] = pd.to_numeric(clean_df_character_metadata_CMU['age_at_release'].apply(lambda x: abs(x) if x < 0 else (x if x < 100 else pd.NA)), errors='coerce')
 
+# TVTROPES
 # Creating new columns for each key of the dictionary to separate its values
 # https://www.geeksforgeeks.org/python-convert-string-dictionary-to-dictionary/
 df_tvtropes_clusters_CMU['dictionary'] = df_tvtropes_clusters_CMU['dictionary'].apply(ast.literal_eval)
 df_tvtropes_clusters_CMU[['character_name','title','freebase_map_ID','actor_name']] = pd.json_normalize(df_tvtropes_clusters_CMU['dictionary'])
 
+# CHARACTERS METADATA
+# Correcting the age outliers in character dataset : HOW
+clean_df_character_metadata_CMU['age_at_release'] = pd.to_numeric(clean_df_character_metadata_CMU['age_at_release'].apply(lambda x: abs(x) if x < 0 else (x if x < 100 else np.nan)), errors='coerce')
+# Keeping only years as actor date of birth in character dataset - output years are strings (use pd.numeric if operations needed)
+# Replacing the 'nan' by np.nan 
+clean_df_character_metadata_CMU['birth_date'] = clean_df_character_metadata_CMU['birth_date'].apply(lambda x:str(x)[:4]).replace('nan', np.nan)
+# Modifying manually one "weird" release date
+clean_df_character_metadata_CMU['release_date'] = clean_df_character_metadata_CMU['release_date'].replace('1010-12-02', '1900-01-01')
+# Similarly keeping only years as movie release date 
+clean_df_character_metadata_CMU['release_date'] = clean_df_character_metadata_CMU['release_date'].apply(lambda x:str(x)[:4]).replace('nan', np.nan)
+# Clean height outliers (only the larger values) - the small values (0.6m) correspond to children
+clean_df_character_metadata_CMU['height'] = clean_df_character_metadata_CMU['height'].apply(lambda x : x if x<2.5 else np.nan)
+# Change actors ethnicity by their nationality (American or other)
+clean_df_character_metadata_CMU.drop(columns='ethnicity')
+# Nationality
+from nationality_importer import nationality_import
+clean_df_character_metadata_CMU['nationality'] = nationality_import(clean_df_character_metadata_CMU, 'actor_name')
 
 ################################################## Merging #############################################################
 
