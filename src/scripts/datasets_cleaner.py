@@ -132,6 +132,8 @@ clean_df_character_metadata_CMU['age_at_release'] = pd.to_numeric(clean_df_chara
 # Keeping only years as actor date of birth in character dataset - output years are strings (use pd.numeric if operations needed)
 # Replacing the 'nan' by np.nan 
 clean_df_character_metadata_CMU['birth_date'] = clean_df_character_metadata_CMU['birth_date'].apply(lambda x:str(x)[:4]).replace('nan', np.nan)
+#CLEANER CA 
+#clean_df_character_metadata_CMU['birth_date'] = clean_df_character_metadata_CMU['birth_date'].apply(lambda x: x if 1800 <=x <= 2016 else np.nan)
 # Modifying manually one "weird" release date
 clean_df_character_metadata_CMU['release_date'] = clean_df_character_metadata_CMU['release_date'].replace('1010-12-02', '1900-01-01')
 # Similarly keeping only years as movie release date 
@@ -141,9 +143,11 @@ clean_df_character_metadata_CMU['height'] = clean_df_character_metadata_CMU['hei
 # Change actors ethnicity by their nationality (American or other)
 clean_df_character_metadata_CMU.drop(columns='ethnicity')
 # Nationality
-from nationality_importer import nationality_import
-#clean_df_character_metadata_CMU['nationality'] = nationality_import(clean_df_character_metadata_CMU, 'actor_name')
-clean_df_character_metadata_CMU['nationality'] = clean_df_character_metadata_CMU['actor_name'].apply(lambda x: nationality_import(x))
+from nationality_importer import parallelize_nationality_import
+#clean_df_character_metadata_CMU['nationality'] = clean_df_character_metadata_CMU['actor_name'].apply(lambda x: nationality_import(x))
+clean_df_character_metadata_CMU['nationality'] = parallelize_nationality_import(clean_df_character_metadata_CMU, 'actor_name')
+
+## PERSONAS !!
 
 ################################################## Merging #############################################################
 
@@ -181,14 +185,14 @@ df_movies_full_left['release_year'] = df_movies_full_left['release_year'].astype
 
 
 # 1b) Merging the clean CMU movie dataset witht the character dataset
-df_movie_character_merged = pd.merge(clean_df_character_metadata_CMU, clean_df_movie_metadata_CMU, on=['wiki_movie_ID','freebase_movie_ID','release_date'], how='outer')
-df_movie_character_final = pd.merge(df_movie_character_merged, df_tvtropes_clusters_CMU, on = ['freebase_map_ID', 'title', 'character_name','actor_name'], how='left')
-df_movie_character_final.drop(columns=['release_date','ethnicity', 'freebase_map_ID','freebase_char_ID','freebase_actor_ID', 'languages', 'genres', 'dictionary'], inplace= True)
+#df_movie_character_merged = pd.merge(clean_df_character_metadata_CMU, clean_df_movie_metadata_CMU, on=['wiki_movie_ID','freebase_movie_ID','release_date'], how='outer')
+#df_movie_character_final = pd.merge(df_movie_character_merged, df_tvtropes_clusters_CMU, on = ['freebase_map_ID', 'title', 'character_name','actor_name'], how='left')
+#df_movie_character_final.drop(columns=['release_date','ethnicity', 'freebase_map_ID','freebase_char_ID','freebase_actor_ID', 'languages', 'genres', 'dictionary'], inplace= True)
 
 
     
 
 ################################################## Writing CSV files ############################################################
 df_movie_metada_full_left.to_csv("data/movie_metadata_CMU_IMDB.csv", sep=',', encoding='utf-8', index=False, header=True)
-df_movie_character_final.to_csv("data/character_actor_metadata_CMU.csv",sep=',', encoding='utf-8', index=False, header=True)
+#df_movie_character_final.to_csv("data/character_actor_metadata_CMU.csv",sep=',', encoding='utf-8', index=False, header=True)
 df_plot_summaries_CMU.to_csv("data/plot_summaries_CMU.csv", sep=',', encoding='utf-8', index=False, header=True)

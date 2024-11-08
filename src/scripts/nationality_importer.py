@@ -1,14 +1,13 @@
-from SPARQLWrapper import SPARQLWrapper, CSV #from stack overflow
-import re
+from SPARQLWrapper import SPARQLWrapper, CSV
 import numpy as np
+import concurrent.futures
+import pandas as pd
+from tqdm import tqdm
 
 def nationality_import(x): 
     sparql = SPARQLWrapper("https://dbpedia.org/sparql")
-    nationality = ["Other", "American"] #2 possibilities
-    count = 0
-    try : 
-        count+=1
-        print(count)
+    nationality = ["Other", "American"]  # 2 possibilities
+    try:
         sparql.setQuery(f"""
         SELECT (IF(CONTAINS(?abstract, "American"), TRUE, FALSE) AS ?containsAmerican) WHERE {{ 
         <http://dbpedia.org/resource/{str(x).replace(' ', '_')}> <http://dbpedia.org/ontology/abstract> ?abstract .
@@ -16,14 +15,20 @@ def nationality_import(x):
         }}
         """)
         sparql.setReturnFormat(CSV)
-        # -2 : one-before last character (last one is a space)
-        # query.convert.decode outputs : "containsAmerican"1 or "containsAmerican"0 
         result = sparql.query().convert().decode("utf-8")[-2]
-        print(result)
         actor_nat = nationality[int(result)]
-    except Exception as e :
-        pblm = x
+    except Exception as e:
+        # In case of any error, return NaN
         actor_nat = np.nan
     return actor_nat
+
+def parallelize_nationality_import(df, column_name):
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Apply the nationality_import function to each row in the specified column
+        results = list(tqdm(executor.map(nationality_import, df[column_name]), total=len(df), desc="Processing Nationality"))
+    # Create a new column in the dataframe with the results
+    df['nationality'] = results
+    return df
+
 
   
