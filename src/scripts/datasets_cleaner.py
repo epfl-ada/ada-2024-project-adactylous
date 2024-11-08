@@ -142,7 +142,8 @@ clean_df_character_metadata_CMU['height'] = clean_df_character_metadata_CMU['hei
 clean_df_character_metadata_CMU.drop(columns='ethnicity')
 # Nationality
 from nationality_importer import nationality_import
-clean_df_character_metadata_CMU['nationality'] = nationality_import(clean_df_character_metadata_CMU, 'actor_name')
+#clean_df_character_metadata_CMU['nationality'] = nationality_import(clean_df_character_metadata_CMU, 'actor_name')
+clean_df_character_metadata_CMU['nationality'] = clean_df_character_metadata_CMU['actor_name'].apply(lambda x: nationality_import(x))
 
 ################################################## Merging #############################################################
 
