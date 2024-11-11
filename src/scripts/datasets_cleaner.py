@@ -55,7 +55,7 @@ print("Dataframes creation starting for CMU datasets...")
 
 df_plot_summaries_CMU = pd.read_csv(file_path + "/plot_summaries.txt", delimiter="\t", header=None, names=["ID", "Summary"]) # renaming the columns for better understanding
 df_movie_metadata_CMU = pd.read_csv(file_path + "/movie.metadata.tsv", delimiter="\t", header=None) 
-df_character_metadata_CMU = pd.read_csv(file_path + "/character.metadata.tsv", delimiter="\t", header=None) 
+df_character_metadata_CMU = pd.read_csv(file_path + "/character.metadata.tsv", delimiter="\t", header=None)
 df_tvtropes_clusters_CMU = pd.read_csv(file_path + "/tvtropes.clusters.txt", delimiter="\t", header=None) 
 df_name_clusters_CMU = pd.read_csv(file_path + "/name.clusters.txt", delimiter="\t", header=None) 
 
@@ -71,7 +71,7 @@ print("Dataframes creation for IMDB datasets done.")
 ################################################## Cleaning CMU dataset ##########################################################
 df_movie_metadata_CMU.columns = ['wiki_movie_ID', 'freebase_movie_ID', 'title', 'release_date', 'box_office', 'runtime', 'languages', 'countries', 'genres']
 df_character_metadata_CMU.columns = ['wiki_movie_ID', 'freebase_movie_ID', 'release_date', 'character_name', 'birth_date', 'gender', 'height', 'ethnicity', 'actor_name', 'age_at_release','freebase_map_ID', 'freebase_char_ID', 'freebase_actor_ID']
-df_tvtropes_clusters_CMU.columns = ['cluster','dictionary']
+df_tvtropes_clusters_CMU.columns = ['persona','dictionary']
 
 clean_df_movie_metadata_CMU = df_movie_metadata_CMU.copy() # copy of original data frame to avoid messing it up
 clean_df_character_metadata_CMU = df_character_metadata_CMU.copy()
@@ -127,17 +127,21 @@ df_tvtropes_clusters_CMU['dictionary'] = df_tvtropes_clusters_CMU['dictionary'].
 df_tvtropes_clusters_CMU[['character_name','title','freebase_map_ID','actor_name']] = pd.json_normalize(df_tvtropes_clusters_CMU['dictionary'])
 
 # CHARACTERS METADATA
-# Correcting the age outliers in character dataset : HOW
-clean_df_character_metadata_CMU['age_at_release'] = pd.to_numeric(clean_df_character_metadata_CMU['age_at_release'].apply(lambda x: abs(x) if x < 0 else (x if x < 100 else np.nan)), errors='coerce')
-# Keeping only years as actor date of birth in character dataset - output years are strings (use pd.numeric if operations needed)
+# Correcting the age outliers in character dataset : age at release is a float
+clean_df_character_metadata_CMU['age_at_release'] = clean_df_character_metadata_CMU['age_at_release'].apply(lambda x: abs(x) if x < 0 else (x if x < 100 else np.nan))
+# Keeping only years as actor date of birth in character dataset - output years are strings (use pd.numeric if operations needed) : input is object 
 # Replacing the 'nan' by np.nan 
-clean_df_character_metadata_CMU['birth_date'] = clean_df_character_metadata_CMU['birth_date'].apply(lambda x:str(x)[:4]).replace('nan', np.nan)
+clean_df_character_metadata_CMU['birth_date'] = pd.to_numeric(clean_df_character_metadata_CMU['birth_date'].astype(str).str[:4], errors='coerce')
 #CLEANER CA 
-#clean_df_character_metadata_CMU['birth_date'] = clean_df_character_metadata_CMU['birth_date'].apply(lambda x: x if 1800 <=x <= 2016 else np.nan)
+clean_df_character_metadata_CMU['birth_year'] = clean_df_character_metadata_CMU['birth_date'].astype('Int64').apply(lambda x: x if 1800 <= x<= 2016 else np.nan)
 # Modifying manually one "weird" release date
 clean_df_character_metadata_CMU['release_date'] = clean_df_character_metadata_CMU['release_date'].replace('1010-12-02', '1900-01-01')
-# Similarly keeping only years as movie release date 
-clean_df_character_metadata_CMU['release_date'] = clean_df_character_metadata_CMU['release_date'].apply(lambda x:str(x)[:4]).replace('nan', np.nan)
+
+# Similarly keeping only years as movie release date - input is object 
+clean_df_character_metadata_CMU['release_year'] = clean_df_character_metadata_CMU['release_date'].astype(str).str[:4].replace('nan', np.nan, inplace=True)
+# Convert release year to numeric, nan str have been converted to nan int 
+clean_df_character_metadata_CMU['release_year'] = clean_df_character_metadata_CMU['release_year'].astype('Int64')
+
 # Clean height outliers (only the larger values) - the small values (0.6m) correspond to children
 clean_df_character_metadata_CMU['height'] = clean_df_character_metadata_CMU['height'].apply(lambda x : x if x<2.5 else np.nan)
 # Change actors ethnicity by their nationality (American or other)
@@ -147,7 +151,7 @@ from nationality_importer import parallelize_nationality_import
 #clean_df_character_metadata_CMU['nationality'] = clean_df_character_metadata_CMU['actor_name'].apply(lambda x: nationality_import(x))
 clean_df_character_metadata_CMU['nationality'] = parallelize_nationality_import(clean_df_character_metadata_CMU, 'actor_name')
 
-## PERSONAS !!
+## PERSONAS 
 
 ################################################## Merging #############################################################
 
@@ -166,9 +170,7 @@ df_IMDB_final['runtimeMinutes'] = pd.to_numeric(df_IMDB_final['runtimeMinutes'].
 
 # 2a) Merging the final IMDB with the clean CMU movie.metatdat
 df_movie_metada_full_left = pd.merge(clean_df_movie_metadata_CMU, df_IMDB_final, left_on= ['title', 'runtime', 'release_year'], right_on= ['originalTitle', 'runtimeMinutes','startYear'], how = 'left', suffixes=('_CMU', '_IMDB'))
-
 df_movie_metada_full_left.drop(columns=['runtimeMinutes', 'startYear', 'originalTitle'], inplace= True)
-
 
 # Check for rows with non-UTF-8 characters and replace them
 for col in df_movie_metada_full_left.columns:
@@ -180,19 +182,17 @@ for col in df_movie_metada_full_left.columns:
 cols = ['wiki_movie_ID', 'freebase_movie_ID', 'title', 'release_date', 'release_year', 'runtime', 'languages', 'countries', 'box_office', 'averageRating', 'numVotes', 'genres_CMU', 'genres_IMDB']
 df_movies_full_left = df_movie_metada_full_left[cols]
 
-# to ensure that 'release_year' stays an int whne writing it to the csv file
+# to ensure that 'release_year' stays an int when writing it to the csv file
 df_movies_full_left['release_year'] = df_movies_full_left['release_year'].astype('Int64')
 
-
 # 1b) Merging the clean CMU movie dataset witht the character dataset
-#df_movie_character_merged = pd.merge(clean_df_character_metadata_CMU, clean_df_movie_metadata_CMU, on=['wiki_movie_ID','freebase_movie_ID','release_date'], how='outer')
-#df_movie_character_final = pd.merge(df_movie_character_merged, df_tvtropes_clusters_CMU, on = ['freebase_map_ID', 'title', 'character_name','actor_name'], how='left')
-#df_movie_character_final.drop(columns=['release_date','ethnicity', 'freebase_map_ID','freebase_char_ID','freebase_actor_ID', 'languages', 'genres', 'dictionary'], inplace= True)
+df_character_personas = pd.merge(clean_df_character_metadata_CMU, df_tvtropes_clusters_CMU, on=['character_name', 'actor_name', 'freebase_map_ID'], how='left')
+df_character_personas.drop(columns=['release_date','birth_date', 'dictionary', 'ethnicity', 'freebase_map_ID','freebase_char_ID','freebase_actor_ID'], inplace= True)
 
-
-    
 
 ################################################## Writing CSV files ############################################################
 df_movie_metada_full_left.to_csv("data/movie_metadata_CMU_IMDB.csv", sep=',', encoding='utf-8', index=False, header=True)
-#df_movie_character_final.to_csv("data/character_actor_metadata_CMU.csv",sep=',', encoding='utf-8', index=False, header=True)
+clean_df_character_metadata_CMU.to_csv("data/actor_metadata_CMU.csv",sep=',', encoding='utf-8', index=False, header=True)
+df_tvtropes_clusters_CMU.to_csv("data/personas_metadata_CMU.csv",sep=',', encoding='utf-8', index=False, header=True)
 df_plot_summaries_CMU.to_csv("data/plot_summaries_CMU.csv", sep=',', encoding='utf-8', index=False, header=True)
+df_character_personas.to_csv("data/character_personas_CMU.csv", sep=',', encoding='utf-8', index=False, header=True)

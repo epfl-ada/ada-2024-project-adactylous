@@ -27,8 +27,9 @@ def parallelize_nationality_import(df, column_name):
         # Apply the nationality_import function to each row in the specified column
         results = list(tqdm(executor.map(nationality_import, df[column_name]), total=len(df), desc="Processing Nationality"))
     # Create a new column in the dataframe with the results
-    df['nationality'] = results
-    return df
+    nat =pd.DataFrame(results)
+    nat.to_csv("C:/Users/chloe/Documents/ADA/ada-2024-project-adactylous/data/nationality.csv", sep=',', encoding='utf-8', index=False, na_rep='NaN')
+    return results
 
 
   
