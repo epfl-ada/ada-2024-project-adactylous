@@ -134,8 +134,8 @@ clean_df_character_metadata_CMU['age_at_release'] = clean_df_character_metadata_
 clean_df_character_metadata_CMU['birth_date'] = pd.to_numeric(clean_df_character_metadata_CMU['birth_date'].astype(str).str[:4], errors='coerce')
 #CLEANER CA 
 clean_df_character_metadata_CMU['birth_year'] = clean_df_character_metadata_CMU['birth_date'].astype('Int64').apply(lambda x: x if 1800 <= x<= 2016 else np.nan)
-# Modifying manually one "weird" release date
-clean_df_character_metadata_CMU['release_date'] = clean_df_character_metadata_CMU['release_date'].replace('1010-12-02', '1900-01-01')
+# Modifying manually one "weird" release date (cf. above same modification for the movie.metadata)
+clean_df_character_metadata_CMU['release_date'] = clean_df_character_metadata_CMU['release_date'].replace('1010-12-02', '2012-10-19')
 
 # Similarly keeping only years as movie release date - input is object 
 clean_df_character_metadata_CMU['release_year'] = clean_df_character_metadata_CMU['release_date'].astype(str).str[:4].replace('nan', np.nan, inplace=True)
@@ -147,13 +147,14 @@ clean_df_character_metadata_CMU['height'] = clean_df_character_metadata_CMU['hei
 # Change actors ethnicity by their nationality (American or other)
 clean_df_character_metadata_CMU.drop(columns='ethnicity')
 # Nationality
-# from nationality_importer import parallelize_nationality_import
+#from nationality_importer import parallelize_nationality_import
 # #clean_df_character_metadata_CMU['nationality'] = clean_df_character_metadata_CMU['actor_name'].apply(lambda x: nationality_import(x))
 # clean_df_character_metadata_CMU['nationality'] = parallelize_nationality_import(clean_df_character_metadata_CMU, 'actor_name')
-nationality = pd.read_csv('data/nationality.csv',header=None, names=['0']) #temporary
-clean_df_character_metadata_CMU['nationality'] = nationality #temporary
+nationality = pd.read_csv('data/nationality.csv',header=None, names=['nationality'], skiprows=1) #temporary
+clean_df_character_metadata_CMU['nationality'] = nationality['nationality'] #temporary
 
 ## PERSONAS 
+# already cleaned since comes from the paper coming along with the CMU dataset
 
 ################################################## Merging #############################################################
 
@@ -189,11 +190,11 @@ df_movies_full_left['release_year'] = df_movies_full_left['release_year'].astype
 
 # 1b) Merging the clean CMU movie dataset with the actor dataset -- USEFUL, LEAVE IT !! :)
 df_character_final = pd.merge(clean_df_character_metadata_CMU, clean_df_movie_metadata_CMU, on=['wiki_movie_ID', 'freebase_movie_ID'], how='inner')
-df_character_final.drop(columns=['runtime', 'languages','genres','release_date_x','release_year_x'])
+df_character_final.drop(columns=['runtime', 'languages','genres','release_date_x','release_year_x'], inplace= True)
 
 # 1c) Merging the clean character dataset with the personas dataset
-df_character_personas = pd.merge(clean_df_character_metadata_CMU, df_tvtropes_clusters_CMU, on=['character_name', 'actor_name', 'freebase_map_ID'], how='left')
-df_character_personas.drop(columns=['release_date','birth_date', 'dictionary', 'ethnicity', 'freebase_map_ID','freebase_char_ID','freebase_actor_ID'], inplace= True)
+# df_character_personas = pd.merge(clean_df_character_metadata_CMU, df_tvtropes_clusters_CMU, on=['character_name', 'actor_name', 'freebase_map_ID'], how='left')
+# df_character_personas.drop(columns=['release_date','birth_date', 'dictionary', 'ethnicity', 'freebase_map_ID','freebase_char_ID','freebase_actor_ID'], inplace= True)
 
 
 ################################################## Writing CSV files ############################################################
@@ -201,4 +202,4 @@ df_movie_metada_full_left.to_csv("data/movie_metadata_CMU_IMDB.csv", sep=',', en
 df_character_final.to_csv("data/actor_metadata_CMU.csv", sep=',', encoding='utf-8', errors='ignore',index=False, header=True)
 df_tvtropes_clusters_CMU.to_csv("data/personas_metadata_CMU.csv",sep=',', encoding='utf-8', index=False, header=True)
 df_plot_summaries_CMU.to_csv("data/plot_summaries_CMU.csv", sep=',', encoding='utf-8', index=False, header=True)
-df_character_personas.to_csv("data/character_personas_CMU.csv", sep=',', encoding='utf-8', index=False, header=True)
+#df_character_personas.to_csv("data/character_personas_CMU.csv", sep=',', encoding='utf-8', index=False, header=True)
