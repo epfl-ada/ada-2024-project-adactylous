@@ -189,8 +189,9 @@ df_movies_full_left = df_movie_metada_full_left[cols]
 df_movies_full_left['release_year'] = df_movies_full_left['release_year'].astype('Int64')
 
 # 1b) Merging the clean CMU movie dataset with the actor dataset -- USEFUL, LEAVE IT !! :)
+clean_df_character_metadata_CMU.drop(columns=['release_date','release_year'], inplace=True)
 df_character_final = pd.merge(clean_df_character_metadata_CMU, clean_df_movie_metadata_CMU, on=['wiki_movie_ID', 'freebase_movie_ID'], how='inner')
-df_character_final.drop(columns=['runtime', 'languages','genres','release_date_x','release_year_x'], inplace= True)
+df_character_final.drop(columns=[ 'runtime', 'languages','genres'], inplace=True)
 
 # 1c) Merging the clean character dataset with the personas dataset
 # df_character_personas = pd.merge(clean_df_character_metadata_CMU, df_tvtropes_clusters_CMU, on=['character_name', 'actor_name', 'freebase_map_ID'], how='left')
