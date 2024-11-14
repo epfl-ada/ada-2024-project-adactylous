@@ -154,7 +154,7 @@ nationality = pd.read_csv('data/nationality.csv',header=None, names=['nationalit
 clean_df_character_metadata_CMU['nationality'] = nationality['nationality'] #temporary
 
 ## PERSONAS 
-# already cleaned since comes from the paper coming along with the CMU dataset
+# Already cleaned assince comes from the reference paper (Bramman et al., 2015) coming along with the CMU dataset
 
 ################################################## Merging #############################################################
 
