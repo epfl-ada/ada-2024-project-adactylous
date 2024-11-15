@@ -6,7 +6,8 @@ import shutil # needed to write the .tsv file in a new file of IMDB dataset afte
 import tarfile # sinve CMU datasets are compressed in the .tar.gz format
 import numpy as np
 import pandas as pd
-from unidecode import unidecode
+from unidecode import unidecode # for handling non ACSII character for the purpose of writing csv files
+from nationality_importer import parallelize_nationality_import # to import the nationality_importer.py (cf scripts folder)
 
 # Define a helper function to extract the names by importing **ast** to safely parse the strings into dictionaries
 def clean_column(dict_string):
@@ -100,6 +101,7 @@ clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Thiruth
 # https://en.wikipedia.org/wiki/Paradise_in_Harlem 
 clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Paradise in Harlem', 'release_year'] = 1939
 
+# Correcting manually some wrong movie time using Wikipedia to have a more meaningful distribution
 # Correcting the runtime outlier of the the film Zero Tolerance that has a tremendous runtime value to the duration written in wikipedia
 # https://en.wikipedia.org/wiki/Zero_Tolerance_(1994_film)
 clean_df_movie_metadata_CMU.loc[clean_df_movie_metadata_CMU['title'] == 'Zero Tolerance', 'runtime'] = 94.0
@@ -147,14 +149,14 @@ clean_df_character_metadata_CMU['height'] = clean_df_character_metadata_CMU['hei
 # Change actors ethnicity by their nationality (American or other)
 clean_df_character_metadata_CMU.drop(columns='ethnicity')
 # Nationality
-#from nationality_importer import parallelize_nationality_import
-# #clean_df_character_metadata_CMU['nationality'] = clean_df_character_metadata_CMU['actor_name'].apply(lambda x: nationality_import(x))
-# clean_df_character_metadata_CMU['nationality'] = parallelize_nationality_import(clean_df_character_metadata_CMU, 'actor_name')
-nationality = pd.read_csv('data/nationality.csv',header=None, names=['nationality'], skiprows=1) #temporary
-clean_df_character_metadata_CMU['nationality'] = nationality['nationality'] #temporary
+# Here we iterqte over the dataset and perform the SPARQL query
+clean_df_character_metadata_CMU['nationality'] = parallelize_nationality_import(clean_df_character_metadata_CMU, 'actor_name')
+# Once we have peformed the query and written nationalities as a csv, we can re-run cleaning processes without redoing the query every time, using the lines below 
+#nationality = pd.read_csv('data/nationality.csv',header=None, names=['nationality'], skiprows=1) #temporary
+#clean_df_character_metadata_CMU['nationality'] = nationality['nationality'] #temporary
 
 ## PERSONAS 
-# Already cleaned assince comes from the reference paper (Bramman et al., 2015) coming along with the CMU dataset
+# Already cleaned since comes from the reference paper (Bramman et al., 2015) coming along with the CMU dataset
 
 ################################################## Merging #############################################################
 
@@ -193,14 +195,15 @@ clean_df_character_metadata_CMU.drop(columns=['release_date','release_year'], in
 df_character_final = pd.merge(clean_df_character_metadata_CMU, clean_df_movie_metadata_CMU, on=['wiki_movie_ID', 'freebase_movie_ID'], how='inner')
 df_character_final.drop(columns=[ 'runtime', 'languages','genres'], inplace=True)
 
+# Commented for now but maybe useful for later
 # 1c) Merging the clean character dataset with the personas dataset
 # df_character_personas = pd.merge(clean_df_character_metadata_CMU, df_tvtropes_clusters_CMU, on=['character_name', 'actor_name', 'freebase_map_ID'], how='left')
 # df_character_personas.drop(columns=['release_date','birth_date', 'dictionary', 'ethnicity', 'freebase_map_ID','freebase_char_ID','freebase_actor_ID'], inplace= True)
-
+#df_character_personas.to_csv("data/character_personas_CMU.csv", sep=',', encoding='utf-8', index=False, header=True)
 
 ################################################## Writing CSV files ############################################################
 df_movie_metada_full_left.to_csv("data/movie_metadata_CMU_IMDB.csv", sep=',', encoding='utf-8', index=False, header=True)
 df_character_final.to_csv("data/actor_metadata_CMU.csv", sep=',', encoding='utf-8', errors='ignore',index=False, header=True)
 df_tvtropes_clusters_CMU.to_csv("data/personas_metadata_CMU.csv",sep=',', encoding='utf-8', index=False, header=True)
 df_plot_summaries_CMU.to_csv("data/plot_summaries_CMU.csv", sep=',', encoding='utf-8', index=False, header=True)
-#df_character_personas.to_csv("data/character_personas_CMU.csv", sep=',', encoding='utf-8', index=False, header=True)
+
