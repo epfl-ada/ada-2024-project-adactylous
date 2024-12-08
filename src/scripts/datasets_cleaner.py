@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from unidecode import unidecode # for handling non ACSII character for the purpose of writing csv files
 from nationality_importer import parallelize_nationality_import # to import the nationality_importer.py (cf scripts folder)
+from create_award_index import create_award_index # importing the function to create the award index from create_award_index.py (cf scripts folder)
 
 # Define a helper function to extract the names by importing **ast** to safely parse the strings into dictionaries
 def clean_column(dict_string):
@@ -23,6 +24,8 @@ def clean_column(dict_string):
 DATA_FOLDER = "data/raw/"
 CMU_SUBFOLDER = "CMU/"
 IMDB_SUBFOLDER = "IMDB/"
+OSCAR_SUBFOLDER = "OSCAR/"
+GLOBES_SUBFOLDER = "GOLDENGLOBES/"
 
 
 ################################################## Extraction ##################################################################
@@ -68,6 +71,16 @@ df_basics_IMDB = pd.read_csv(DATA_FOLDER + IMDB_SUBFOLDER + "/title.basics.tsv",
 df_ratings_IMDB = pd.read_csv(DATA_FOLDER + IMDB_SUBFOLDER + "/title.ratings.tsv", delimiter = '\t')
 
 print("Dataframes creation for IMDB datasets done.")
+
+## OSCARS
+print("Dataframes creation for OSCARS dataset starting.")
+df_oscars = pd.read_csv(DATA_FOLDER + OSCAR_SUBFOLDER + 'database.csv')
+print("Dataframes creation for OSCARS datasets done.")
+
+## GOLDEN GLOBES
+print("Dataframes creation for GLOBES dataset starting.")
+df_globes = pd.read_csv(DATA_FOLDER + GLOBES_SUBFOLDER + 'golden_globe_awards.csv')
+print("Dataframes creation for GLOBES datasets done.")
 
 ################################################## Cleaning CMU dataset ##########################################################
 df_movie_metadata_CMU.columns = ['wiki_movie_ID', 'freebase_movie_ID', 'title', 'release_date', 'box_office', 'runtime', 'languages', 'countries', 'genres']
@@ -158,6 +171,62 @@ clean_df_character_metadata_CMU['nationality'] = parallelize_nationality_import(
 ## PERSONAS 
 # Already cleaned since comes from the reference paper (Bramman et al., 2015) coming along with the CMU dataset
 
+## OSCARS
+# Filter for awards provided only for acting achievements 
+df_oscars_actors = df_oscars['Award'].str.contains('Actor|Actress') # The concerned awards contain the words 'Actor' or 'Actress'
+index_actors = [i for i,x  in enumerate(list(df_oscars_actors)) if x == True] # Creates an index for the rows with the wanted awards 
+df_oscars_actors = df_oscars.iloc[index_actors]
+
+# Clean the column 'Year': keep only the first four letters:
+df_oscars_actors['Year'] = df_oscars_actors['Year'].apply(lambda x: x[:4])
+
+# Create a column with the right count of the winners to keep track of the winners
+winners = df_oscars_actors.groupby('Name').agg({'Winner': 'sum'})
+# Create a column with the number nominations for an oscar for each actor:
+nominations = df_oscars_actors.groupby('Name', as_index=False)['Name'].value_counts()
+df_oscars_actors['Winner'] = df_oscars_actors['Winner'].apply(lambda x: True if x == 1 else False) # Creates a more reasonable value for if the actor won or not 
+
+# Preparing the dataframe for csv writing
+# Group by "actors" to have unique values "Name" for the actors:
+df_oscars_clean = df_oscars_actors.groupby('Name', as_index=False).first() # first() only keeps the first row of a grouped dataframe
+
+# Add the columns to the dataset with unique values by merging
+df_oscars_clean = pd.merge(df_oscars_clean, winners, left_on='Name', right_index=True)
+df_oscars_clean = pd.merge(df_oscars_clean, nominations, left_on='Name', right_on='Name') # Add number of nominations to the dataset
+# Drop supplement columns, rename columns
+df_oscars_clean = df_oscars_clean.drop(['Winner_x', 'Year', 'Ceremony', 'Film', 'Award'], axis = 1)
+df_oscars_clean = df_oscars_clean.rename(columns = {'Winner_y' : 'nr_wins', 'count' : 'nr_nominations', 'Name' : 'nominee'})
+
+# Renameing also the df_oscars_actors columns for conistency
+df_oscars_actors = df_oscars_actors.rename(columns={'Year' : 'year', 'Ceremony': 'ceremony', 'Award': 'award', 'Winner': 'winner', 'Name': 'nominee', 'Film' : 'film'})
+
+# Creating an award index for oscars using the create_award_index function (cf create_award_index.py):
+df_oscars_clean['oscar_index'] = create_award_index(df_oscars_clean['nr_nominations'], df_oscars_clean['nr_wins'])
+
+
+## GOLDEN GLOBES
+# Renaming columns for consitency with OSCARS dataset
+df_globes.rename(columns= {'year_award': 'year', 'category': 'award', 'win' : 'winner'}, inplace=True)
+# Filter for awards provided only for acting achievements 
+actor_awards = df_globes['award'].str.contains('Actor|Actress')
+index_actors = [i for i,x  in enumerate(list(actor_awards)) if x == True]
+df_globes_actors = df_globes.iloc[index_actors]
+
+# Count times of nominations of each actor
+nominations = df_globes_actors.groupby('nominee', as_index=False)['nominee'].value_counts()
+# Count times wins of each actor:
+winners = df_globes_actors.groupby('nominee', as_index=False).agg({'winner': 'sum'})
+
+# Merge the data:
+df_globes_clean = df_globes_actors.groupby('nominee', as_index=False).first() # first() only keeps the first row of a grouped dataframe
+df_globes_clean = pd.merge(df_globes_clean, nominations, left_on='nominee', right_on='nominee')
+df_globes_clean = pd.merge(winners, df_globes_clean, left_on='nominee', right_on='nominee')
+df_globes_clean.drop(['year_film', 'year', 'ceremony', 'award', 'film', 'winner_y'], axis = 1, inplace=True)
+df_globes_clean = df_globes_clean.rename(columns= {'winner_x' : 'nr_wins', 'count' : 'nr_nominations'})
+
+# Creating an award index for golden globe awards using the create_award_index function (cf create_award_index.py):
+df_globes_clean['globes_index'] = create_award_index(df_globes_clean['nr_nominations'], df_globes_clean['nr_wins'])
+
 ################################################## Merging #############################################################
 
 # 1a) Merging both IMDB datasets: title
@@ -207,3 +276,8 @@ df_character_final.to_csv("data/actor_metadata_CMU.csv", sep=',', encoding='utf-
 df_tvtropes_clusters_CMU.to_csv("data/personas_metadata_CMU.csv",sep=',', encoding='utf-8', index=False, header=True)
 df_plot_summaries_CMU.to_csv("data/plot_summaries_CMU.csv", sep=',', encoding='utf-8', index=False, header=True)
 
+df_oscars_clean.to_csv("./ada-2024-project-adactylous/data/oscars_award_index.csv", sep=',', encoding='utf-8', index=False, header=True) # Write csv for oscar award index
+df_oscars_actors.to_csv("./ada-2024-project-adactylous/data/oscars_actor_nominations.csv", sep=',', encoding='utf-8', index=False, header=True) # Write csv for all nominations ever
+
+df_globes_clean.to_csv("./ada-2024-project-adactylous/data/globes_award_index.csv", sep=',', encoding='utf-8', index=False, header=True) # Write csv for oscar award index
+df_globes_actors.to_csv("./ada-2024-project-adactylous/data/globes_actor_nominations.csv", sep=',', encoding='utf-8', index=False, header=True) # Write csv for all nominations ever
