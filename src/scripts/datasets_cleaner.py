@@ -277,7 +277,4 @@ df_tvtropes_clusters_CMU.to_csv("data/personas_metadata_CMU.csv",sep=',', encodi
 df_plot_summaries_CMU.to_csv("data/plot_summaries_CMU.csv", sep=',', encoding='utf-8', index=False, header=True)
 
 df_oscars_clean.to_csv("./ada-2024-project-adactylous/data/oscars_award_index.csv", sep=',', encoding='utf-8', index=False, header=True) # Write csv for oscar award index
-df_oscars_actors.to_csv("./ada-2024-project-adactylous/data/oscars_actor_nominations.csv", sep=',', encoding='utf-8', index=False, header=True) # Write csv for all nominations ever
-
 df_globes_clean.to_csv("./ada-2024-project-adactylous/data/globes_award_index.csv", sep=',', encoding='utf-8', index=False, header=True) # Write csv for oscar award index
-df_globes_actors.to_csv("./ada-2024-project-adactylous/data/globes_actor_nominations.csv", sep=',', encoding='utf-8', index=False, header=True) # Write csv for all nominations ever
